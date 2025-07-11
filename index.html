@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Says Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .game-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .score {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+            max-width: 400px;
+        }
+
+        .color-button {
+            width: 150px;
+            height: 150px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .color-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .color-button:active {
+            transform: translateY(0);
+        }
+
+        .red { background: linear-gradient(145deg, #ff6b6b, #ee5a52); }
+        .blue { background: linear-gradient(145deg, #4ecdc4, #44a08d); }
+        .green { background: linear-gradient(145deg, #95e1d3, #6ab7aa); }
+        .yellow { background: linear-gradient(145deg, #fce38a, #f38ba8); }
+
+        .active {
+            animation: flash 0.5s ease-in-out;
+            transform: scale(1.1);
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        .start-btn {
+            background: linear-gradient(145deg, #ff9a9e, #fecfef);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .start-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .message {
+            font-size: 1.3em;
+            margin: 20px 0;
+            font-weight: bold;
+            min-height: 30px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-over {
+            background: rgba(255, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 2px solid rgba(255, 0, 0, 0.5);
+        }
+
+        .high-score {
+            font-size: 1.1em;
+            margin-top: 15px;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎮 Simon Says</h1>
+        <div class="score">Round: <span id="round">0</span></div>
+        <div class="high-score">High Score: <span id="highScore">0</span></div>
+        
+        <div class="message" id="message">Press START to begin!</div>
+        
+        <div class="game-board">
+            <button class="color-button red" id="red" data-color="red">RED</button>
+            <button class="color-button blue" id="blue" data-color="blue">BLUE</button>
+            <button class="color-button green" id="green" data-color="green">GREEN</button>
+            <button class="color-button yellow" id="yellow" data-color="yellow">YELLOW</button>
+        </div>
+        
+        <div class="controls">
+            <button class="start-btn" id="startBtn">START GAME</button>
+        </div>
+    </div>
+
+    <script>
+        class SimonGame {
+            constructor() {
+                this.sequence = [];
+                this.playerSequence = [];
+                this.round = 0;
+                this.isPlaying = false;
+                this.isShowingSequence = false;
+                this.highScore = localStorage.getItem('simonHighScore') || 0;
+                
+                this.colors = ['red', 'blue', 'green', 'yellow'];
+                this.sounds = {};
+                
+                this.initializeElements();
+                this.initializeSounds();
+                this.updateDisplay();
+            }
+            
+            initializeElements() {
+                this.startBtn = document.getElementById('startBtn');
+                this.messageEl = document.getElementById('message');
+                this.roundEl = document.getElementById('round');
+                this.highScoreEl = document.getElementById('highScore');
+                
+                this.colorButtons = {};
+                this.colors.forEach(color => {
+                    this.colorButtons[color] = document.getElementById(color);
+                });
+                
+                this.startBtn.addEventListener('click', () => this.startGame());
+                
+                Object.values(this.colorButtons).forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        if (this.isPlaying && !this.isShowingSequence) {
+                            this.handlePlayerClick(e.target.dataset.color);
+                        }
+                    });
+                });
+            }
+            
+            initializeSounds() {
+                // Create simple audio context for beeps
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.soundFrequencies = {
+                    red: 220,
+                    blue: 277,
+                    green: 330,
+                    yellow: 415
+                };
+            }
+            
+            playSound(color) {
+                if (!this.audioContext) return;
+                
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.value = this.soundFrequencies[color];
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.3);
+            }
+            
+            startGame() {
+                this.sequence = [];
+                this.playerSequence = [];
+                this.round = 0;
+                this.isPlaying = true;
+                this.startBtn.disabled = true;
+                this.startBtn.textContent = 'PLAYING...';
+                
+                this.nextRound();
+            }
+            
+            nextRound() {
+                this.round++;
+                this.playerSequence = [];
+                this.addToSequence();
+                this.updateDisplay();
+                this.showSequence();
+            }
+            
+            addToSequence() {
+                const randomColor = this.colors[Math.floor(Math.random() * this.colors.length)];
+                this.sequence.push(randomColor);
+            }
+            
+            async showSequence() {
+                this.isShowingSequence = true;
+                this.messageEl.textContent = 'Watch the sequence...';
+                
+                await this.delay(1000);
+                
+                for (let i = 0; i < this.sequence.length; i++) {
+                    await this.delay(600);
+                    this.highlightButton(this.sequence[i]);
+                    await this.delay(400);
+                }
+                
+                this.isShowingSequence = false;
+                this.messageEl.textContent = 'Your turn! Repeat the sequence';
+            }
+            
+            highlightButton(color) {
+                const button = this.colorButtons[color];
+                button.classList.add('active');
+                this.playSound(color);
+                
+                setTimeout(() => {
+                    button.classList.remove('active');
+                }, 400);
+            }
+            
+            handlePlayerClick(color) {
+                this.playerSequence.push(color);
+                this.highlightButton(color);
+                
+                const currentIndex = this.playerSequence.length - 1;
+                
+                if (this.playerSequence[currentIndex] !== this.sequence[currentIndex]) {
+                    this.gameOver();
+                    return;
+                }
+                
+                if (this.playerSequence.length === this.sequence.length) {
+                    this.messageEl.textContent = 'Correct! Get ready for the next round...';
+                    setTimeout(() => this.nextRound(), 1500);
+                }
+            }
+            
+            gameOver() {
+                this.isPlaying = false;
+                this.isShowingSequence = false;
+                
+                if (this.round - 1 > this.highScore) {
+                    this.highScore = this.round - 1;
+                    localStorage.setItem('simonHighScore', this.highScore);
+                    this.messageEl.innerHTML = `
+                        <div class="game-over">
+                            🎉 NEW HIGH SCORE! 🎉<br>
+                            You reached round ${this.round - 1}!<br>
+                            Game Over - Try again!
+                        </div>
+                    `;
+                } else {
+                    this.messageEl.innerHTML = `
+                        <div class="game-over">
+                            Game Over!<br>
+                            You reached round ${this.round - 1}
+                        </div>
+                    `;
+                }
+                
+                this.startBtn.disabled = false;
+                this.startBtn.textContent = 'PLAY AGAIN';
+                this.updateDisplay();
+            }
+            
+            updateDisplay() {
+                this.roundEl.textContent = this.round;
+                this.highScoreEl.textContent = this.highScore;
+            }
+            
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+        
+        // Initialize the game when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SimonGame();
+        });
+    </script>
+</body>
+</html>
